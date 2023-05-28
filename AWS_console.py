@@ -1,14 +1,21 @@
 import boto3
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
+from operator import itemgetter
+import logging
 from botocore.exceptions import ClientError
+import time
+from readings import *
 
 
+#listing of files in a bucket
 def list_buckets(s3_client):
     response = s3_client.list_buckets()
     print('Buckets:')
     for bucket in response['Buckets']:
         print(bucket['Name'])
 
-
+#creating a bucket
 def create_bucket(s3_resource):
     bucket_name = input('Enter a valid bucket name: ')
     region = input('Enter a valid region name (e.g., eu-north-1): ')
@@ -21,7 +28,7 @@ def create_bucket(s3_resource):
     except ClientError as e:
         print(e)
 
-
+#deleting a bucket function
 def delete_bucket(s3_client):
     bucket_name = input('Enter a valid bucket name to be deleted: ')
     try:
@@ -30,7 +37,7 @@ def delete_bucket(s3_client):
     except ClientError as e:
         print(e)
 
-
+#uploading a file to a bucket
 def upload_file(s3_resource):
     bucket_name = input('Enter the bucket name: ')
     file_path = input('Enter the file path: ')
@@ -41,7 +48,7 @@ def upload_file(s3_resource):
     except ClientError as e:
         print(e)
 
-
+#downlaoding a file from a bucket
 def download_file(s3_client):
     bucket_name = input('Enter the bucket name: ')
     file_name = input('Enter the file name: ')
@@ -51,7 +58,7 @@ def download_file(s3_client):
     except ClientError as e:
         print(e)
 
-
+#deleting a file from a bucket
 def delete_file(s3_resource):
     bucket_name = input('Enter the bucket name: ')
     file_name = input('Enter the file name: ')
@@ -61,7 +68,7 @@ def delete_file(s3_resource):
     except ClientError as e:
         print(e)
 
-
+#emptying the contents of a bucket
 def empty_bucket(s3_resource):
     bucket_name = input('Enter the bucket name: ')
     try:
@@ -71,7 +78,7 @@ def empty_bucket(s3_resource):
     except ClientError as e:
         print(e)
 
-
+#starting an ec2 instance
 def start_instance(ec2_resource):
     instance_id = input('Enter the instance ID: ')
     try:
@@ -87,7 +94,6 @@ def start_instance(ec2_resource):
         print(f'Instance "{instance_id}" started successfully')
     except ClientError as e:
         print(e)
-
 
 def stop_instance(ec2_resource):
     instance_id = input('Enter the instance ID: ')
