@@ -1,103 +1,75 @@
 import boto3
-import time
 from botocore.exceptions import ClientError
-from readings import *
 
 
-# Function to upload a file to a bucket
-def upload_file(s3_resource, bucket_name, file_path, file_name):
+def list_buckets(s3_client):
+    response = s3_client.list_buckets()
+    print('Buckets:')
+    for bucket in response['Buckets']:
+        print(bucket['Name'])
+
+
+def create_bucket(s3_resource):
+    bucket_name = input('Enter a valid bucket name: ')
+    region = input('Enter a valid region name (e.g., eu-north-1): ')
     try:
-        data = open(file_path, 'rb')
-        start = time.time()
-        s3_resource.Bucket(bucket_name).put_object(Key=file_name, Body=data)
-        end = time.time()
-
+        s3_resource.create_bucket(
+            Bucket=bucket_name,
+            CreateBucketConfiguration={'LocationConstraint': region}
+        )
+        print(f'Bucket "{bucket_name}" created successfully')
     except ClientError as e:
         print(e)
-        return 0
-    print(f'"{file_name}" uploaded successfully')
-    return end - start
 
 
-# Function to download a file from a bucket
-def download_file(s3_client, bucket_name, file_name):
+def delete_bucket(s3_client):
+    bucket_name = input('Enter a valid bucket name to be deleted: ')
     try:
-        start = time.time()
+        s3_client.delete_bucket(Bucket=bucket_name)
+        print(f'Bucket "{bucket_name}" deleted successfully')
+    except ClientError as e:
+        print(e)
+
+
+def upload_file(s3_resource):
+    bucket_name = input('Enter the bucket name: ')
+    file_path = input('Enter the file path: ')
+    file_name = input('Enter the file name: ')
+    try:
+        s3_resource.meta.client.upload_file(file_path, bucket_name, file_name)
+        print(f'File "{file_name}" uploaded successfully to bucket "{bucket_name}"')
+    except ClientError as e:
+        print(e)
+
+
+def download_file(s3_client):
+    bucket_name = input('Enter the bucket name: ')
+    file_name = input('Enter the file name: ')
+    try:
         s3_client.download_file(bucket_name, file_name, file_name)
-        end = time.time()
-
+        print(f'File "{file_name}" downloaded successfully from bucket "{bucket_name}"')
     except ClientError as e:
         print(e)
-        return 0
-    print(f'"{file_name}" downloaded successfully')
-    return end - start
 
 
-# Function to delete a file from a bucket
-def delete_file(s3_resource, bucket_name, file_name):
+def delete_file(s3_resource):
+    bucket_name = input('Enter the bucket name: ')
+    file_name = input('Enter the file name: ')
     try:
         s3_resource.Object(bucket_name, file_name).delete()
-
+        print(f'File "{file_name}" deleted successfully from bucket "{bucket_name}"')
     except ClientError as e:
         print(e)
-        return False
-
-    print(f'File "{file_name}" deleted successfully')
-    return True
 
 
-# Function to create a bucket
-def create_bucket(s3_resource, bucket_name, region=None):
-    try:
-        if region is None:
-            s3_resource.create_bucket(Bucket=bucket_name)
-        else:
-            location = {'LocationConstraint': region}
-            s3_resource.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
-
-    except ClientError as e:
-        print(e)
-        return False
-    print(f'Bucket "{bucket_name}" created successfully')
-    return True
-
-
-# Function to delete a bucket
-def delete_bucket(s3_client, bucket_name):
-    try:
-        _ = s3_client.delete_bucket(Bucket=bucket_name)
-
-    except ClientError as e:
-        print(e)
-        return False
-    print(f'Bucket "{bucket_name}" deleted successfully')
-    return True
-
-
-# Function to empty a bucket
-def empty_bucket(s3_resource, bucket_name):
+def empty_bucket(s3_resource):
+    bucket_name = input('Enter the bucket name: ')
     try:
         bucket = s3_resource.Bucket(bucket_name)
-        bucket.objects.all().delete()
-
+        bucket.objects.delete()
+        print(f'Bucket "{bucket_name}" emptied successfully')
     except ClientError as e:
         print(e)
-        return False
-    print(f'Bucket "{bucket_name}" emptied successfully')
-    return True
-
-
-# Function to list the buckets
-def list_bucket(s3_client, region_name=None):
-    if region_name:
-        response = s3_client.list_buckets()
-        for bucket in response["Buckets"]:
-            if s3_client.get_bucket_location(Bucket=bucket['Name'])['LocationConstraint'] == region_name:
-                print(bucket["Name"])
-    else:
-        response = s3_client.list_buckets()
-        for bucket in response["Buckets"]:
-            print(bucket["Name"])
 
 
 def start_instance(ec2_resource):
@@ -134,83 +106,88 @@ def stop_instance(ec2_resource):
         print(e)
 
 
-def get_instance_status(ec2_resource):
+def terminate_instance(ec2_resource):
     instance_id = input('Enter the instance ID: ')
-    instance = ec2_resource.Instance(instance_id)
-    print(f'EC2 instance "{instance_id}" state: {instance.state["Name"]}')
+    try:
+        response = ec2_resource.terminate_instances(InstanceIds=[instance_id], DryRun=True)
+        if 'DryRunOperation' not in response:
+            raise ClientError("Dry run failed.")
+    except ClientError as e:
+        print(e)
+        return
+
+    try:
+        response = ec2_resource.terminate_instances(InstanceIds=[instance_id], DryRun=False)
+        print(f'Instance "{instance_id}" terminated successfully')
+    except ClientError as e:
+        print(e)
+
+
+def plot():
+    print('Plotting function not implemented yet')
 
 
 def main():
-    s3_client = boto3.client('s3')
     s3_resource = boto3.resource('s3')
+    s3_client = boto3.client('s3')
     ec2_resource = boto3.resource('ec2')
 
-    print('########## Welcome to AWS CLI #####')
-    print('\nChoose an AWS Service:')
-    user_sel1 = int(input('1. S3\n2. EC2\n3. CloudWatch\n'))
+    print('AWS CLI\n')
+    print('1. S3')
+    print('2. EC2')
+    print('3. CloudWatch')
 
-    if user_sel1 == 1:
-        print('\nSelected: S3')
-        print('1. List Buckets')
-        print('2. Create a Bucket')
-        print('3. Delete a Bucket')
-        print('4. Upload a File')
-        print('5. Download a File')
-        print('6. Delete a File')
-        print('7. Empty Bucket')
+    user_choice = input('Enter your choice (1-3): ')
+    options = {
+        '1': {
+            '1': lambda: list_buckets(s3_client),
+            '2': lambda: create_bucket(s3_resource),
+            '3': lambda: delete_bucket(s3_client),
+            '4': lambda: upload_file(s3_resource),
+            '5': lambda: download_file(s3_client),
+            '6': lambda: delete_file(s3_resource),
+            '7': lambda: empty_bucket(s3_resource)
+        },
+        '2': {
+            '1': lambda: start_instance(ec2_resource),
+            '2': lambda: stop_instance(ec2_resource),
+            '3': lambda: terminate_instance(ec2_resource)
+        },
+        '3': {
+            '1': plot
+        }
+    }
 
-        user_sel2 = int(input('\nEnter your choice: '))
-        if user_sel2 == 1:
-            list_bucket(s3_client)
-        elif user_sel2 == 2:
-            bucket_name = input('Enter a valid bucket name: ')
-            region = input('Enter a valid region name (e.g., eu-north-1): ')
-            create_bucket(s3_resource, bucket_name, region)
-        elif user_sel2 == 3:
-            bucket_name = input('Enter a valid bucket name to be deleted: ')
-            delete_bucket(s3_client, bucket_name)
-        elif user_sel2 == 4:
-            bucket_name = input('Enter the bucket name: ')
-            file_path = input('Enter the file path: ')
-            file_name = input('Enter the file name: ')
-            upload_file(s3_resource, bucket_name, file_path, file_name)
-        elif user_sel2 == 5:
-            bucket_name = input('Enter the bucket name: ')
-            file_name = input('Enter the file name: ')
-            download_file(s3_client, bucket_name, file_name)
-        elif user_sel2 == 6:
-            bucket_name = input('Enter the bucket name: ')
-            file_name = input('Enter the file name: ')
-            delete_file(s3_resource, bucket_name, file_name)
-        elif user_sel2 == 7:
-            bucket_name = input('Enter the bucket name: ')
-            empty_bucket(s3_resource, bucket_name)
-        else:
-            print('Invalid choice')
+    if user_choice in options:
+        print(f'\nSelected: {options[user_choice]["1"].__name__}\n')
+        while True:
+            print('Actions:')
+            if user_choice == '1':
+                print('1. List buckets')
+                print('2. Create bucket')
+                print('3. Delete bucket')
+                print('4. Upload file')
+                print('5. Download file')
+                print('6. Delete file')
+                print('7. Empty bucket')
+                print('0. Back')
+            elif user_choice == '2':
+                print('1. Start instance')
+                print('2. Stop instance')
+                print('3. Terminate instance')
+                print('0. Back')
+            elif user_choice == '3':
+                print('1. Plot')
+                print('0. Back')
 
-    elif user_sel1 == 2:
-        print('\nSelected: EC2')
-        region_name = input('\nEnter a valid region name: ')
-        ec2_resource = boto3.resource('ec2', region_name=region_name)
+            action = input('Enter your action (0 to go back): ')
+            if action == '0':
+                break
 
-        print('1. Start an Instance')
-        print('2. Stop an Instance')
-        print('3. Get Instance Status')
-
-        user_sel3 = int(input('\nEnter your choice: '))
-        if user_sel3 == 1:
-            start_instance(ec2_resource)
-        elif user_sel3 == 2:
-            stop_instance(ec2_resource)
-        elif user_sel3 == 3:
-            get_instance_status(ec2_resource)
-        else:
-            print('Invalid choice')
-
-    elif user_sel1 == 3:
-        print('\nSelected: CloudWatch')
-        plot()
-
+            if action in options[user_choice]:
+                options[user_choice][action]()
+            else:
+                print('Invalid action')
     else:
         print('Invalid choice')
 
