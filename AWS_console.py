@@ -129,8 +129,8 @@ def terminate_instance(ec2_resource):
         print(e)
 
 
-def plot():
-    print('Plotting function not implemented yet')
+def plot_readings():
+    plot()
 
 
 def main():
