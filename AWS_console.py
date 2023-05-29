@@ -160,7 +160,7 @@ def main():
             '3': lambda: terminate_instance(ec2_resource)
         },
         '3': {
-            '1': plot
+            '1': plot()
         }
     }
 
